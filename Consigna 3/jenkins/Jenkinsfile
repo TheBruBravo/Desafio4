@@ -17,6 +17,13 @@ pipeline {
                 git url: 'https://github.com/TheBruBravo/Desafio4.git', branch: 'main'
             }
         }
+        stage('Azure Login') {
+            steps {
+                sh"""
+                az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+                """
+            }
+        }
         stage('Terraform Infrastructure') {
             steps {
                 dir("Consigna 3/infra") {
@@ -27,21 +34,18 @@ pipeline {
                 }
             }
         }
-        stage('Azure Login') {
+        stage('Azure ACR Login') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'AZURE_CREDENTIALS', variable: 'AZURE_USER ')]) {
-                    sh """
-                    az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
-                    az acr login --name $AZURE_ACR_NAME
-                    """
-                }
+                sh"""
+                az acr login --name $AZURE_ACR_NAME
+                """
             }
         }
         stage('Docker Build') {
             steps {
-                dir("Consigna 3/docker") {
-                    sh """
-                    AZURE_ACR_LOGIN=$(az acr show --name ${AZURE_ACR_NAME} --query loginServer --output tsv)
+                dir("Consigna 3/docker"){
+                    sh"""
+                    AZURE_ACR_LOGIN=\$(az acr show --name ${AZURE_ACR_NAME} --query loginServer --output tsv)
                     docker build -t \$AZURE_ACR_LOGIN/${AZURE_IMAGE_NAME}:latest .
                     docker push \$AZURE_ACR_LOGIN/${AZURE_IMAGE_NAME}:latest
                     """
@@ -51,7 +55,7 @@ pipeline {
         stage("Terraform Container App"){
             steps{
                 dir("Consigna 3/containerapp") {
-                    sh """
+                    sh"""
                     terraform init
                     terraform apply --auto-approve
                     """
@@ -61,8 +65,14 @@ pipeline {
     }
     post {
         always {
-            sh 'docker system prune -a -f'
-            cleanWs()
+                sh 'docker system prune -a -f'
+                dir("Consigna 3/infra") {
+                    sh 'terraform destroy --auto-approve || true'
+                }
+                dir("Consigna 3/containerapp") {
+                    sh 'terraform destroy --auto-approve || true'
+                }
+                cleanWs()
         }
     }
 }
