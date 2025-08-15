@@ -17,6 +17,4 @@ resource "azurerm_log_analytics_workspace" "log" {
 resource "azurerm_container_app_environment" "env" {
   name                       = "${var.containerapp_name}-env"
   location                   = var.location
-  resource_group_name        = var.resource_group_name
-  log_analytics_workspace_id = azurerm_log_analytics_workspace.log.id
 }

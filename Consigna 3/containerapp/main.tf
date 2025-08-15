@@ -1,5 +1,10 @@
 data "azurerm_container_registry" "acr" {
-  name                = var.acr_name
+  name = var.acr_name
+  resource_group_name = var.resource_group_name
+}
+
+data "azurerm_container_app_environment" "env" {
+  name = "${var.containerapp_name}-env"
   resource_group_name = var.resource_group_name
 }
 
@@ -12,13 +17,12 @@ resource "azurerm_user_assigned_identity" "app_identity" {
 resource "azurerm_role_assignment" "pull_acr" {
   principal_id         = azurerm_user_assigned_identity.app_identity.principal_id
   role_definition_name = "AcrPull"
-  scope                = azurerm_container_registry.acr.id
-  resource_group_name  = var.resource_group_name
+  scope                = data.azurerm_container_registry.acr.id
 }
 
 resource "azurerm_container_app" "app" {
   name                         = var.containerapp_name
-  container_app_environment_id = azurerm_container_app_environment.env.id
+  container_app_environment_id = data.azurerm_container_app_environment.env.id
   resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
 
@@ -30,7 +34,7 @@ resource "azurerm_container_app" "app" {
   template {
     container {
       name  = "mycontainer"
-      image = "${azurerm_container_registry.acr.login_server}/bbravohtml:latest"
+      image = "${data.azurerm_container_registry.acr.login_server}/bbravohtml:latest"
       cpu    = 0.5
       memory = "1.0Gi"
     }
@@ -47,7 +51,7 @@ resource "azurerm_container_app" "app" {
   }
 
   registry {
-    server   = azurerm_container_registry.acr.login_server
+    server   = data.azurerm_container_registry.acr.login_server
     identity = azurerm_user_assigned_identity.app_identity.id
   }
 

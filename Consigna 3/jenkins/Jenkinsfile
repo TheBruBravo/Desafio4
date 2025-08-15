@@ -65,14 +65,8 @@ pipeline {
     }
     post {
         always {
-                sh 'docker system prune -a -f'
-                dir("Consigna 3/infra") {
-                    sh 'terraform destroy --auto-approve || true'
-                }
-                dir("Consigna 3/containerapp") {
-                    sh 'terraform destroy --auto-approve || true'
-                }
-                cleanWs()
+            sh 'docker system prune -a -f'
+            cleanWs()
         }
     }
 }
