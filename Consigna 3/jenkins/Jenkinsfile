@@ -1,0 +1,68 @@
+pipeline {
+    agent any
+    options {
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    environment {
+        AZURE_CLIENT_ID = credentials('AZURE_CLIENT_ID')
+        AZURE_CLIENT_SECRET = credentials('AZURE_CLIENT_SECRET')
+        AZURE_TENANT_ID = credentials('AZURE_TENANT_ID')
+        AZURE_ACR_NAME = 'bbravoacr'
+        AZURE_IMAGE_NAME = 'bbravohtml'
+    }
+    stages {
+        stage('Checkout') {
+            steps {
+                git url: 'https://github.com/TheBruBravo/Desafio4.git', branch: 'main'
+            }
+        }
+        stage('Terraform Infrastructure') {
+            steps {
+                dir("Consigna 3/infra") {
+                    sh """
+                    terraform init
+                    terraform apply --auto-approve
+                    """
+                }
+            }
+        }
+        stage('Azure Login') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'AZURE_CREDENTIALS', variable: 'AZURE_USER ')]) {
+                    sh """
+                    az login --service-principal -u $AZURE_CLIENT_ID -p $AZURE_CLIENT_SECRET --tenant $AZURE_TENANT_ID
+                    az acr login --name $AZURE_ACR_NAME
+                    """
+                }
+            }
+        }
+        stage('Docker Build') {
+            steps {
+                dir("Consigna 3/docker") {
+                    sh """
+                    AZURE_ACR_LOGIN=$(az acr show --name ${AZURE_ACR_NAME} --query loginServer --output tsv)
+                    docker build -t \$AZURE_ACR_LOGIN/${AZURE_IMAGE_NAME}:latest .
+                    docker push \$AZURE_ACR_LOGIN/${AZURE_IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+        stage("Terraform Container App"){
+            steps{
+                dir("Consigna 3/containerapp") {
+                    sh """
+                    terraform init
+                    terraform apply --auto-approve
+                    """
+                }
+            }
+        }
+    }
+    post {
+        always {
+            sh 'docker system prune -a -f'
+            cleanWs()
+        }
+    }
+}

@@ -1,15 +1,15 @@
 resource "azurerm_container_registry" "acr" {
   name                = var.acr_name
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = var.resource_group_name
   location            = var.location
   sku                 = "Basic"
-  admin_enabled       = false
+  admin_enabled       = true
 }
 
 resource "azurerm_log_analytics_workspace" "log" {
   name                = "${var.containerapp_name}-log"
   location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
   retention_in_days   = 30
 }
@@ -17,14 +17,14 @@ resource "azurerm_log_analytics_workspace" "log" {
 resource "azurerm_container_app_environment" "env" {
   name                       = "${var.containerapp_name}-env"
   location                   = var.location
-  resource_group_name        = azurerm_resource_group.rg.name
+  resource_group_name        = var.resource_group_name
   log_analytics_workspace_id = azurerm_log_analytics_workspace.log.id
 }
 
 resource "azurerm_user_assigned_identity" "app_identity" {
   name                = "${var.containerapp_name}-identity"
   location            = var.location
-  resource_group_name = azurerm_resource_group.rg.name
+  resource_group_name = var.resource_group_name
 }
 
 resource "azurerm_role_assignment" "pull_acr" {
@@ -36,7 +36,7 @@ resource "azurerm_role_assignment" "pull_acr" {
 resource "azurerm_container_app" "app" {
   name                         = var.containerapp_name
   container_app_environment_id = azurerm_container_app_environment.env.id
-  resource_group_name          = azurerm_resource_group.rg.name
+  resource_group_name          = var.resource_group_name
   revision_mode                = "Single"
 
   identity {
